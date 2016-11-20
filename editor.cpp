@@ -10,6 +10,7 @@
 #define NOMBRE_VENTANA "Rastreador de Esferas"
 
 using namespace cv;
+using namespace std;
 
 typedef std::queue< Point2i > colaPix;
 typedef std::vector< Point2i > region;
