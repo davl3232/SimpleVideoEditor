@@ -1,26 +1,42 @@
 #include <iostream>
+#include <unistd.h>
 #include <opencv2/opencv.hpp>
 using namespace cv;
-int main (int argc,char *argv[])
+using namespace std;
+
+#define NOMBRE_VENTANA "Simple Video Editor"
+
+int main (int argc, char *argv[])
 {
-	if (argc<2)
+	if (argc < 2)
 	{
-		std::cout<<"Numero de argumentos invalido"<<std::endl;
-		return -1;
+		cout << "Numero de argumentos invalido." << endl;
+		return 1;
 	}
-	VideoCapture video (argv[1]);
-	if(!video.isOpened())  // check if we succeeded
-		return -1;
-	Mat edges;
-	namedWindow("edges",1);
-	for(;;)
+
+	VideoCapture video;
+	Mat frame;
+
+	// Intentar abrir video
+	if (!video.open(argv[1]))
 	{
-		Mat frame;
-		video >> frame; // get a new frame from camera
-		cvtColor(frame, edges, CV_BGR2GRAY);
-		GaussianBlur(edges, edges, Size(7,7), 1.5, 1.5);
-		Canny(edges, edges, 0, 30, 3);
-		imshow("edges", edges);
+		cout << "Video no encontrado." << endl;
+		return 1;
+	}
+	video.set(CV_CAP_PROP_FOURCC, CV_FOURCC('H','2','6','4'));
+	cout << video.get(CV_CAP_PROP_FOURCC) << endl;
+
+	// Crear ventana
+	namedWindow( NOMBRE_VENTANA, CV_WINDOW_AUTOSIZE );
+	waitKey(10);
+	while (1) {
+		// Extraer frame
+		video >> frame;
+		if ( !frame.empty() ) {
+			// Mostrar imagen en ventana
+			imshow(NOMBRE_VENTANA, frame);
+			if ( waitKey(1) == 27 ) break;
+		}
 	}
 	return 0;
 }
