@@ -1,0 +1,4 @@
+/home/jose/Documentos/desarrollo/SimpleVideoEditor/Build/CMakeFiles/edit_cache.dir
+/home/jose/Documentos/desarrollo/SimpleVideoEditor/Build/CMakeFiles/rebuild_cache.dir
+/home/jose/Documentos/desarrollo/SimpleVideoEditor/Build/CMakeFiles/lector.dir
+/home/jose/Documentos/desarrollo/SimpleVideoEditor/Build/CMakeFiles/editor.dir
