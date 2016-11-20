@@ -96,7 +96,7 @@ int main(int argc, char** argv )
   createTrackbar( "Max B: ", NOMBRE_VENTANA,
                         &max_btol, 255);*/
 
-  if (!cap.open(0))
+  if (!cap.open("../shia.avi"))
     return 0;
   //sleep(1);
   for (;;) {
