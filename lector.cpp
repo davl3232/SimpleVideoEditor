@@ -55,6 +55,7 @@ int main (int argc, char *argv[]) {
 
 	Mat frame;
 	Mat img2 = img;
+
 	// Leer video a 24 fps
 	double fps = cap.get(CV_CAP_PROP_FPS);
 	string nombrePlay = "";
@@ -133,10 +134,10 @@ int main (int argc, char *argv[]) {
 		// Cortar imagen para insertar en video
 		int imgX = mouseX - 0.5*(img.cols);
 		int imgY = mouseY - 0.5*(img.rows);
-		int roiX = max(0,-imgX);
-		int roiY = max(0,-imgY);
-		int roiW = max(0,min(frame.cols - imgX - roiX,img.cols - roiX));
-		int roiH = max(0,min(frame.rows - imgY - roiY,img.rows - roiY));
+		int roiX = max(0,min(-imgX, frame.cols));
+		int roiY = max(0,min(-imgY, frame.rows));
+		int roiW = max(0,min(frame.cols - imgX - roiX, img.cols - roiX));
+		int roiH = max(0,min(frame.rows - imgY - roiY, img.rows - roiY));
 		imgX += roiX;
 		imgY += roiY;
 
@@ -164,8 +165,6 @@ int main (int argc, char *argv[]) {
 }
 // Callback del Mouse
 void mouseHandler(int event, int x, int y, int flags, void* userdata) {
-	mouseX = x;
-	mouseY = y;
 	if (event == EVENT_LBUTTONDOWN) {
 		mouseOprimido = true;
 		if (botonPlayArea.contains(Point(x, y))) {
@@ -213,5 +212,9 @@ void mouseHandler(int event, int x, int y, int flags, void* userdata) {
 		} else {
 			sobreStop = false;
 		}
+	}
+	if (videoArea.contains(Point(x, y))) {
+		mouseX = x;
+		mouseY = y;
 	}
 }
