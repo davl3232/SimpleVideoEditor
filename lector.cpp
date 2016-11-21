@@ -16,15 +16,18 @@ bool mouseOprimido = false;
 bool reproduciendo = true;
 bool oprimiendoPlay = false, oprimiendoStop = false;
 bool sobrePlay = false, sobreStop = false;
+bool detenido = false;
 Rect botonPlayArea, botonStopArea, videoArea;
 Mat canvas;
+string filename;
+VideoCapture cap;
 int main (int argc, char *argv[]) {
 	if (argc < 2) {
 		cout << "Numero de argumentos invalido." << endl;
 		return 1;
 	}
-	string filename(argv[1]);
-	VideoCapture cap(filename);
+	filename = string(argv[1]);
+	cap.open(filename);
 	if (!cap.isOpened()) {
 		cout << "No se pudo abrir el archvio." << endl;
 		exit(-1);
@@ -56,71 +59,74 @@ int main (int argc, char *argv[]) {
 	int numFrames = cap.get(CV_CAP_PROP_FRAME_COUNT);
 	cout << numFrames << endl;
 	while (true) {
-	    auto t1 = chrono::high_resolution_clock::now();
-	    if (reproduciendo) {
-			cap >> frame;
-			if (frame.empty()) {
-				cout << "Archivo terminado." << endl;
-				break;
+		while (true) {
+		    auto t1 = chrono::high_resolution_clock::now();
+		    if (reproduciendo) {
+				cap >> frame;
+				if (frame.empty()) {
+					cout << "Archivo terminado." << endl;
+					break;
+				}
+		    }
+			if (primeraIteracion) {
+				videoArea = Rect(0, 0, frame.cols, frame.rows);
+				botonPlayArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
+				botonStopArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0 - botonStopNormal.cols*1.5, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
+				primeraIteracion = false;
 			}
-	    }
-		if (primeraIteracion) {
-			videoArea = Rect(0, 0, frame.cols, frame.rows);
-			botonPlayArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
-			botonStopArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0 - botonStopNormal.cols*1.5, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
-			primeraIteracion = false;
-		}
 
-		// Canvas GUI
-		canvas = Mat(frame.rows + botonPlayNormal.rows, frame.cols, frame.type(), Scalar(0,0,0,0));
+			// Canvas GUI
+			canvas = Mat(frame.rows + botonPlayNormal.rows, frame.cols, frame.type(), Scalar(0,0,0,0));
 
-		// Dibujar GUI
-
-		cout << "reproduciendo: " << reproduciendo << endl;
-		cout << "mouseOprimido: " << mouseOprimido << endl;
-		cout << "oprimiendoPlay: " << oprimiendoPlay << endl;
-		cout << "sobrePlay: " << sobrePlay << endl;
-		cout << "oprimiendoStop: " << oprimiendoStop << endl;
-		cout << "sobreStop: " << sobreStop << endl;
-
-		if (reproduciendo) {
-			if (oprimiendoPlay) {
-				botonPauseOprimido.copyTo(canvas(botonPlayArea));
-			} else if (sobrePlay) {
-				botonPauseHover.copyTo(canvas(botonPlayArea));
+			// Debug
+			cout << "reproduciendo: " << reproduciendo << endl;
+			cout << "mouseOprimido: " << mouseOprimido << endl;
+			cout << "oprimiendoPlay: " << oprimiendoPlay << endl;
+			cout << "sobrePlay: " << sobrePlay << endl;
+			cout << "oprimiendoStop: " << oprimiendoStop << endl;
+			cout << "sobreStop: " << sobreStop << endl;
+			
+			// Dibujar GUI
+			if (reproduciendo) {
+				if (oprimiendoPlay) {
+					botonPauseOprimido.copyTo(canvas(botonPlayArea));
+				} else if (sobrePlay) {
+					botonPauseHover.copyTo(canvas(botonPlayArea));
+				} else {
+					botonPauseNormal.copyTo(canvas(botonPlayArea));
+				}
 			} else {
-				botonPauseNormal.copyTo(canvas(botonPlayArea));
+				if (oprimiendoPlay) {
+					botonPlayOprimido.copyTo(canvas(botonPlayArea));
+				} else if (sobrePlay) {
+					botonPlayHover.copyTo(canvas(botonPlayArea));
+				} else {
+					botonPlayNormal.copyTo(canvas(botonPlayArea));
+				}
 			}
-		} else {
-			if (oprimiendoPlay) {
-				botonPlayOprimido.copyTo(canvas(botonPlayArea));
-			} else if (sobrePlay) {
-				botonPlayHover.copyTo(canvas(botonPlayArea));
+			if (oprimiendoStop) {
+				botonStopOprimido.copyTo(canvas(botonStopArea));
+			} else if (sobreStop) {
+				botonStopHover.copyTo(canvas(botonStopArea));
 			} else {
-				botonPlayNormal.copyTo(canvas(botonPlayArea));
+				botonStopNormal.copyTo(canvas(botonStopArea));
 			}
+
+			// Dibujar frame video
+			if (!detenido) {
+				frame.copyTo(canvas(videoArea));
+			}
+
+			imshow(NOMBRE_VENTANA, canvas);
+
+		    auto t2 = chrono::high_resolution_clock::now();
+		    chrono::duration<double> diff = t2 - t1;
+			// Detener al oprimir ESC
+			if (waitKey(1000.0 / fps) == 27) break;
+			t2 = chrono::high_resolution_clock::now();
+		    diff = t2 - t1;
+		    //std::cout << (double)chrono::duration_cast<chrono::nanoseconds>(diff).count()/1000000 << '\n';
 		}
-		if (oprimiendoStop) {
-			botonStopOprimido.copyTo(canvas(botonStopArea));
-		} else if (sobreStop) {
-			botonStopHover.copyTo(canvas(botonStopArea));
-		} else {
-			botonStopNormal.copyTo(canvas(botonStopArea));
-		}
-
-		// Dibujar frame video
-		frame.copyTo(canvas(videoArea));
-
-		imshow(NOMBRE_VENTANA, canvas);
-
-	    auto t2 = chrono::high_resolution_clock::now();
-	    chrono::duration<double> diff = t2 - t1;
-	    //std::cout << (double)chrono::duration_cast<chrono::nanoseconds>(diff).count()/1000000 << " ";
-		// Detener al oprimir ESC
-		if (waitKey(1000.0 / fps) == 27) break;
-		t2 = chrono::high_resolution_clock::now();
-	    diff = t2 - t1;
-	    //std::cout << (double)chrono::duration_cast<chrono::nanoseconds>(diff).count()/1000000 << '\n';
 	}
 
 	return 0;
@@ -135,10 +141,18 @@ void mouseHandler(int event, int x, int y, int flags, void* userdata) {
 		mouseOprimido = true;
 		if (botonPlayArea.contains(Point(x, y))) {
 			reproduciendo = !reproduciendo;
+			detenido = false;
 			oprimiendoPlay = true;
 		}
 		if (botonStopArea.contains(Point(x, y))) {
 			oprimiendoStop = true;
+			reproduciendo = false;
+			detenido = true;
+			cap.open(filename);
+			if (!cap.isOpened()) {
+				cout << "No se pudo abrir el archvio." << endl;
+				exit(-1);
+			}
 		}
 		sobrePlay = false;
 		sobreStop = false;
