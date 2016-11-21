@@ -12,28 +12,49 @@ using namespace std;
 void ActualizarBarra( int, void* );
 void mouseHandler(int event, int x, int y, int flags, void* userdata);
 
+// Banderas de estado de GUI/reproducción del video
 bool mouseOprimido = false;
 bool reproduciendo = true;
 bool oprimiendoPlay = false, oprimiendoStop = false;
 bool sobrePlay = false, sobreStop = false;
 bool detenido = false;
+bool poniendoImagen = false;
+
+// Posición del Mouse
+int mouseX = 0, mouseY = 0;
+
+// Areas para el GUI
 Rect botonPlayArea, botonStopArea, videoArea;
+
+// Lugar donde se dibuja el GUI
 Mat canvas;
-string filename;
+
+// Nombres de archivos
+string videoFilename;
+string imgFilename;
+string saveFilename;
+
+// Archivo de video
 VideoCapture cap;
+
 int main (int argc, char *argv[]) {
-	if (argc < 2) {
+	if (argc < 4) {
 		cout << "Numero de argumentos invalido." << endl;
 		return 1;
 	}
-	filename = string(argv[1]);
-	cap.open(filename);
+	videoFilename = string(argv[1]);
+	imgFilename = string(argv[2]);
+	saveFilename = string(argv[3]);
+	cap.open(videoFilename);
 	if (!cap.isOpened()) {
 		cout << "No se pudo abrir el archvio." << endl;
 		exit(-1);
 	}
 
+	Mat img = imread(imgFilename, CV_LOAD_IMAGE_COLOR);
+
 	Mat frame;
+	Mat img2 = img;
 	// Leer video a 24 fps
 	double fps = cap.get(CV_CAP_PROP_FPS);
 	string nombrePlay = "";
@@ -59,84 +80,92 @@ int main (int argc, char *argv[]) {
 	int numFrames = cap.get(CV_CAP_PROP_FRAME_COUNT);
 	cout << numFrames << endl;
 	while (true) {
-		while (true) {
-		    auto t1 = chrono::high_resolution_clock::now();
-		    if (reproduciendo) {
-				cap >> frame;
-				if (frame.empty()) {
-					cout << "Archivo terminado." << endl;
-					break;
-				}
-		    }
-			if (primeraIteracion) {
-				videoArea = Rect(0, 0, frame.cols, frame.rows);
-				botonPlayArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
-				botonStopArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0 - botonStopNormal.cols*1.5, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
-				primeraIteracion = false;
+	    auto t1 = chrono::high_resolution_clock::now();
+	    if (reproduciendo) {
+			cap >> frame;
+			if (frame.empty()) {
+				cout << "Archivo terminado." << endl;
+				break;
 			}
-
-			// Canvas GUI
-			canvas = Mat(frame.rows + botonPlayNormal.rows, frame.cols, frame.type(), Scalar(0,0,0,0));
-
-			// Debug
-			cout << "reproduciendo: " << reproduciendo << endl;
-			cout << "mouseOprimido: " << mouseOprimido << endl;
-			cout << "oprimiendoPlay: " << oprimiendoPlay << endl;
-			cout << "sobrePlay: " << sobrePlay << endl;
-			cout << "oprimiendoStop: " << oprimiendoStop << endl;
-			cout << "sobreStop: " << sobreStop << endl;
-			
-			// Dibujar GUI
-			if (reproduciendo) {
-				if (oprimiendoPlay) {
-					botonPauseOprimido.copyTo(canvas(botonPlayArea));
-				} else if (sobrePlay) {
-					botonPauseHover.copyTo(canvas(botonPlayArea));
-				} else {
-					botonPauseNormal.copyTo(canvas(botonPlayArea));
-				}
-			} else {
-				if (oprimiendoPlay) {
-					botonPlayOprimido.copyTo(canvas(botonPlayArea));
-				} else if (sobrePlay) {
-					botonPlayHover.copyTo(canvas(botonPlayArea));
-				} else {
-					botonPlayNormal.copyTo(canvas(botonPlayArea));
-				}
-			}
-			if (oprimiendoStop) {
-				botonStopOprimido.copyTo(canvas(botonStopArea));
-			} else if (sobreStop) {
-				botonStopHover.copyTo(canvas(botonStopArea));
-			} else {
-				botonStopNormal.copyTo(canvas(botonStopArea));
-			}
-
-			// Dibujar frame video
-			if (!detenido) {
-				frame.copyTo(canvas(videoArea));
-			}
-
-			imshow(NOMBRE_VENTANA, canvas);
-
-		    auto t2 = chrono::high_resolution_clock::now();
-		    chrono::duration<double> diff = t2 - t1;
-			// Detener al oprimir ESC
-			if (waitKey(1000.0 / fps) == 27) break;
-			t2 = chrono::high_resolution_clock::now();
-		    diff = t2 - t1;
-		    //std::cout << (double)chrono::duration_cast<chrono::nanoseconds>(diff).count()/1000000 << '\n';
+	    }
+	    // Calcular areas de controles y video con el primer frame
+		if (primeraIteracion) {
+			videoArea = Rect(0, 0, frame.cols, frame.rows);
+			botonPlayArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
+			botonStopArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0 - botonStopNormal.cols*1.5, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
+			primeraIteracion = false;
 		}
+
+		// Canvas GUI
+		canvas = Mat(frame.rows + botonPlayNormal.rows, frame.cols, frame.type(), Scalar(0,0,0,0));
+
+		// Dibujar GUI
+		if (reproduciendo) {
+			if (oprimiendoPlay) {
+				botonPauseOprimido.copyTo(canvas(botonPlayArea));
+			} else if (sobrePlay) {
+				botonPauseHover.copyTo(canvas(botonPlayArea));
+			} else {
+				botonPauseNormal.copyTo(canvas(botonPlayArea));
+			}
+		} else {
+			if (oprimiendoPlay) {
+				botonPlayOprimido.copyTo(canvas(botonPlayArea));
+			} else if (sobrePlay) {
+				botonPlayHover.copyTo(canvas(botonPlayArea));
+			} else {
+				botonPlayNormal.copyTo(canvas(botonPlayArea));
+			}
+		}
+		if (oprimiendoStop) {
+			botonStopOprimido.copyTo(canvas(botonStopArea));
+		} else if (sobreStop) {
+			botonStopHover.copyTo(canvas(botonStopArea));
+		} else {
+			botonStopNormal.copyTo(canvas(botonStopArea));
+		}
+
+		// Dibujar frame video
+		if (!detenido) {
+			frame.copyTo(canvas(videoArea));
+		}
+
+		// Cortar imagen para insertar en video
+		int imgX = mouseX - 0.5*(img.cols);
+		int imgY = mouseY - 0.5*(img.rows);
+		int roiX = max(0,-imgX);
+		int roiY = max(0,-imgY);
+		int roiW = max(0,min(frame.cols - imgX - roiX,img.cols - roiX));
+		int roiH = max(0,min(frame.rows - imgY - roiY,img.rows - roiY));
+		imgX += roiX;
+		imgY += roiY;
+
+		img2 = Mat(img,Rect(roiX, roiY, roiW, roiH));
+
+
+		// Meter imagen en frame de video
+		if (poniendoImagen) {
+			img2.copyTo(canvas(Rect(imgX, imgY, img2.cols, img2.rows)));
+		}
+
+		// Mostrar canvas
+		imshow(NOMBRE_VENTANA, canvas);
+
+	    auto t2 = chrono::high_resolution_clock::now();
+	    chrono::duration<double> diff = t2 - t1;
+		// Detener al oprimir ESC
+		t2 = chrono::high_resolution_clock::now();
+	    diff = t2 - t1;
+		if (waitKey(1000.0 / fps) == 27) break;
+	    //std::cout << (double)chrono::duration_cast<chrono::nanoseconds>(diff).count()/1000000 << '\n';
 	}
 
 	return 0;
 }
-/*
-	0: mouseSuelto ->
-	1: mouseOprimido
-*/
 // Callback del Mouse
 void mouseHandler(int event, int x, int y, int flags, void* userdata) {
+	mouseX = x;
+	mouseY = y;
 	if (event == EVENT_LBUTTONDOWN) {
 		mouseOprimido = true;
 		if (botonPlayArea.contains(Point(x, y))) {
@@ -148,11 +177,14 @@ void mouseHandler(int event, int x, int y, int flags, void* userdata) {
 			oprimiendoStop = true;
 			reproduciendo = false;
 			detenido = true;
-			cap.open(filename);
+			cap.open(videoFilename);
 			if (!cap.isOpened()) {
 				cout << "No se pudo abrir el archvio." << endl;
 				exit(-1);
 			}
+		}
+		if (videoArea.contains(Point(x, y))) {
+			poniendoImagen = !poniendoImagen;
 		}
 		sobrePlay = false;
 		sobreStop = false;
@@ -183,40 +215,3 @@ void mouseHandler(int event, int x, int y, int flags, void* userdata) {
 		}
 	}
 }
-/*
-static void onMouse( int event, int x, int y, int, void* )
-{
-    if( event != EVENT_LBUTTONDOWN )
-        return;
-
-    Point seed = Point(x,y);
-    int lo = ffillMode == 0 ? 0 : loDiff;
-    int up = ffillMode == 0 ? 0 : upDiff;
-    int flags = connectivity + (newMaskVal << 8) +
-                (ffillMode == 1 ? FLOODFILL_FIXED_RANGE : 0);
-    int b = (unsigned)theRNG() & 255;
-    int g = (unsigned)theRNG() & 255;
-    int r = (unsigned)theRNG() & 255;
-    Rect ccomp;
-
-    Scalar newVal = isColor ? Scalar(b, g, r) : Scalar(r*0.299 + g*0.587 + b*0.114);
-    Mat dst = isColor ? image : gray;
-    int area;
-
-    if( useMask )
-    {
-        threshold(mask, mask, 1, 128, THRESH_BINARY);
-        area = floodFill(dst, mask, seed, newVal, &ccomp, Scalar(lo, lo, lo),
-                  Scalar(up, up, up), flags);
-        imshow( "mask", mask );
-    }
-    else
-    {
-        area = floodFill(dst, seed, newVal, &ccomp, Scalar(lo, lo, lo),
-                  Scalar(up, up, up), flags);
-    }
-
-    imshow("image", dst);
-    cout << area << " pixels were repainted\n";
-}
-*/
