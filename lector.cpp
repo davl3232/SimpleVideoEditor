@@ -1,6 +1,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <opencv2/opencv.hpp>
+#include <opencv2/highgui/highgui.hpp>
 using namespace cv;
 using namespace std;
 
@@ -13,30 +14,28 @@ int main (int argc, char *argv[])
 		cout << "Numero de argumentos invalido." << endl;
 		return 1;
 	}
-
-	VideoCapture video;
-	Mat frame;
-
-	// Intentar abrir video
-	if (!video.open(argv[1]))
-	{
-		cout << "Video no encontrado." << endl;
-		return 1;
+	string filename(argv[1]);
+	VideoCapture cap(filename);
+	if (!cap.isOpened()) {
+		cout << "Unable to open the camera" << endl;
+		exit(-1);
 	}
-	video.set(CV_CAP_PROP_FOURCC, CV_FOURCC('H','2','6','4'));
-	cout << video.get(CV_CAP_PROP_FOURCC) << endl;
 
-	// Crear ventana
-	namedWindow( NOMBRE_VENTANA, CV_WINDOW_AUTOSIZE );
-	waitKey(10);
-	while (1) {
-		// Extraer frame
-		video >> frame;
-		if ( !frame.empty() ) {
-			// Mostrar imagen en ventana
-			imshow(NOMBRE_VENTANA, frame);
-			if ( waitKey(1) == 27 ) break;
+	Mat image;
+	double FPS = 24.0;
+	// Read camera frames (at approx 24 FPS) and show the result
+	while (true) {
+		cap >> image;
+		if (image.empty()) {
+			cout << "Can't read frames from your camera" << endl;
+			break;
 		}
+
+		imshow("Camera feed", image);
+
+		// Stop the camera if users presses the "ESC" key
+		if (waitKey(1000.0 / FPS) == 27) break;
 	}
+
 	return 0;
 }
