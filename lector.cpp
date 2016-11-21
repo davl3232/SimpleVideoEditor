@@ -12,8 +12,8 @@ using namespace std;
 void ActualizarBarra( int, void* );
 void mouseHandler(int event, int x, int y, int flags, void* userdata);
 
-bool mouseOprimido = 0;
-bool reproduciendo = false;
+bool mouseOprimido = false;
+bool reproduciendo = true;
 bool oprimiendoPlay = false, oprimiendoStop = false;
 bool sobrePlay = false, sobreStop = false;
 Rect botonPlayArea, botonStopArea, videoArea;
@@ -37,8 +37,6 @@ int main (int argc, char *argv[]) {
 	nombrePlay += "|>";
 	namedWindow(NOMBRE_VENTANA, CV_WINDOW_AUTOSIZE);
 
-	//setMouseCallback(const string& winname, MouseCallback onMouse, void* userdata=0 )
-
 	// Cargar GUI
 	Mat botonPlayOprimido = imread("../assets/play_pressed.png", CV_LOAD_IMAGE_COLOR);
 	Mat botonPlayNormal = imread("../assets/play_normal.png", CV_LOAD_IMAGE_COLOR);
@@ -50,73 +48,70 @@ int main (int argc, char *argv[]) {
 	Mat botonStopNormal = imread("../assets/stop_normal.png", CV_LOAD_IMAGE_COLOR);
 	Mat botonStopHover = imread("../assets/stop_hover.png", CV_LOAD_IMAGE_COLOR);
 
+	// Abrir ventana con callbacks
+	namedWindow(NOMBRE_VENTANA);
+	setMouseCallback(NOMBRE_VENTANA, mouseHandler);
+
 	bool primeraIteracion = true;
 	int numFrames = cap.get(CV_CAP_PROP_FRAME_COUNT);
 	cout << numFrames << endl;
 	while (true) {
 	    auto t1 = chrono::high_resolution_clock::now();
-		cap >> frame;
+	    if (reproduciendo) {
+			cap >> frame;
+			if (frame.empty()) {
+				cout << "Archivo terminado." << endl;
+				break;
+			}
+	    }
 		if (primeraIteracion) {
 			videoArea = Rect(0, 0, frame.cols, frame.rows);
 			botonPlayArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
 			botonStopArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0 - botonStopNormal.cols*1.5, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
 			primeraIteracion = false;
 		}
-		if (frame.empty()) {
-			cout << "Archivo terminado." << endl;
-			break;
-		}
 
-		// Canvas
-		canvas = Mat(frame.rows + botonPlayNormal.rows, frame.cols, frame.type(), Scalar(255,255,255,0));
+		// Canvas GUI
+		canvas = Mat(frame.rows + botonPlayNormal.rows, frame.cols, frame.type(), Scalar(0,0,0,0));
 
 		// Dibujar GUI
-		/*
-		if (oprimiendo) {
-			rectangle(canvas, boton, Scalar(200, 200, 200), 2);
-		} else {
-			rectangle(canvas, boton, Scalar(0, 0, 255), 2);
-		}
-		*/
-		// Dibujar GUI
+
+		cout << "reproduciendo: " << reproduciendo << endl;
+		cout << "mouseOprimido: " << mouseOprimido << endl;
+		cout << "oprimiendoPlay: " << oprimiendoPlay << endl;
+		cout << "sobrePlay: " << sobrePlay << endl;
+		cout << "oprimiendoStop: " << oprimiendoStop << endl;
+		cout << "sobreStop: " << sobreStop << endl;
 
 		if (reproduciendo) {
-			if (sobrePlay) {
-				if (oprimiendoPlay) {
-					botonPlayOprimido.copyTo(canvas(botonPlayArea));
-				} else {
-					botonPlayHover.copyTo(canvas(botonPlayArea));
-				}
-			} else {
-				botonPlayNormal.copyTo(canvas(botonPlayArea));
-			}
-		} else {
-			if (sobrePlay) {
-				if (oprimiendoPlay) {
-					botonPauseOprimido.copyTo(canvas(botonPlayArea));
-				} else {
-					botonPauseHover.copyTo(canvas(botonPlayArea));
-				}
+			if (oprimiendoPlay) {
+				botonPauseOprimido.copyTo(canvas(botonPlayArea));
+			} else if (sobrePlay) {
+				botonPauseHover.copyTo(canvas(botonPlayArea));
 			} else {
 				botonPauseNormal.copyTo(canvas(botonPlayArea));
 			}
-		}
-		if (sobreStop) {
-			if (oprimiendoStop) {
-				botonStopOprimido.copyTo(canvas(botonStopArea));
+		} else {
+			if (oprimiendoPlay) {
+				botonPlayOprimido.copyTo(canvas(botonPlayArea));
+			} else if (sobrePlay) {
+				botonPlayHover.copyTo(canvas(botonPlayArea));
 			} else {
-				botonStopHover.copyTo(canvas(botonStopArea));
+				botonPlayNormal.copyTo(canvas(botonPlayArea));
 			}
+		}
+		if (oprimiendoStop) {
+			botonStopOprimido.copyTo(canvas(botonStopArea));
+		} else if (sobreStop) {
+			botonStopHover.copyTo(canvas(botonStopArea));
 		} else {
 			botonStopNormal.copyTo(canvas(botonStopArea));
 		}
+
+		// Dibujar frame video
 		frame.copyTo(canvas(videoArea));
-		// Setup callback function
-		namedWindow(NOMBRE_VENTANA);
-		setMouseCallback(NOMBRE_VENTANA, mouseHandler);
 
 		imshow(NOMBRE_VENTANA, canvas);
-		reproduciendo = true;
 
 	    auto t2 = chrono::high_resolution_clock::now();
 	    chrono::duration<double> diff = t2 - t1;
@@ -136,44 +131,41 @@ int main (int argc, char *argv[]) {
 */
 // Callback del Mouse
 void mouseHandler(int event, int x, int y, int flags, void* userdata) {
-	if (mouseOprimido) {
-		if (event == EVENT_LBUTTONUP) {
-			mouseOprimido = false;
-			oprimiendoPlay = false;
-			oprimiendoStop = false;
-			if (botonPlayArea.contains(Point(x, y))) {
-				sobrePlay = true;
-			} else {
-				sobrePlay = false;
-			}
-			if (botonStopArea.contains(Point(x, y))) {
-				sobreStop = true;
-			} else {
-				sobreStop = false;
-			}
+	if (event == EVENT_LBUTTONDOWN) {
+		mouseOprimido = true;
+		if (botonPlayArea.contains(Point(x, y))) {
+			reproduciendo = !reproduciendo;
+			oprimiendoPlay = true;
+		}
+		if (botonStopArea.contains(Point(x, y))) {
+			oprimiendoStop = true;
+		}
+		sobrePlay = false;
+		sobreStop = false;
+	} else if (event == EVENT_LBUTTONUP) {
+		mouseOprimido = false;
+		oprimiendoPlay = false;
+		oprimiendoStop = false;
+		if (botonPlayArea.contains(Point(x, y))) {
+			sobrePlay = true;
+		} else {
+			sobrePlay = false;
+		}
+		if (botonStopArea.contains(Point(x, y))) {
+			sobreStop = true;
+		} else {
+			sobreStop = false;
 		}
 	} else {
-		if (event == EVENT_LBUTTONDOWN) {
-			mouseOprimido = true;
-			if (botonPlayArea.contains(Point(x, y))) {
-				oprimiendoPlay = true;
-			}
-			if (botonStopArea.contains(Point(x, y))) {
-				oprimiendoStop = true;
-			}
+		if (botonPlayArea.contains(Point(x, y))) {
+			sobrePlay = true;
+		} else {
 			sobrePlay = false;
+		}
+		if (botonStopArea.contains(Point(x, y))) {
+			sobreStop = true;
+		} else {
 			sobreStop = false;
-		} else if (event == EVENT_LBUTTONUP) {
-			if (botonPlayArea.contains(Point(x, y))) {
-				sobrePlay = true;
-			} else {
-				sobrePlay = false;
-			}
-			if (botonStopArea.contains(Point(x, y))) {
-				sobreStop = true;
-			} else {
-				sobreStop = false;
-			}
 		}
 	}
 }
