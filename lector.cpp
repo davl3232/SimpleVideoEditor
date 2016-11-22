@@ -88,7 +88,7 @@ int main (int argc, char *argv[]) {
 	Mat botonStopHover = imread("../assets/stop_hover.png", CV_LOAD_IMAGE_COLOR);
 
 	// Abrir ventana con callbacks
-	namedWindow(NOMBRE_VENTANA, CV_WINDOW_AUTOSIZE);
+	namedWindow(NOMBRE_VENTANA, CV_WINDOW_AUTOSIZE | CV_GUI_NORMAL);
 	setMouseCallback(NOMBRE_VENTANA, mouseHandler);
 
 	bool primeraIteracion = true;
@@ -101,10 +101,10 @@ int main (int argc, char *argv[]) {
 	videoArea = Rect(0, 0, videoW, videoH);
 	botonPlayArea = Rect(-botonPlayNormal.cols/2.0 + videoW/2.0, videoH, botonPlayNormal.cols, botonPlayNormal.rows);
 	botonStopArea = Rect(-botonPlayNormal.cols/2.0 + videoW/2.0 - botonStopNormal.cols*1.5, videoH, botonPlayNormal.cols, botonPlayNormal.rows);
+	Mat saveFrame;
 
 	while (true) {
 	    auto t1 = chrono::high_resolution_clock::now();
-
 	    if (reproduciendo) {
 			cap >> frame;
 			if (frame.empty()) {
@@ -112,9 +112,11 @@ int main (int argc, char *argv[]) {
 				break;
 			}
 	    }
+		saveFrame = Mat(frame.rows, frame.cols, frame.type(), Scalar(0,0,0,255));
+		//frame.copyTo(saveFrame);
 
 		// Canvas GUI
-		canvas = Mat(frame.rows + botonPlayNormal.rows, frame.cols, frame.type(), Scalar(0,0,0,0));
+		canvas = Mat(frame.rows + botonPlayNormal.rows, frame.cols, frame.type(), Scalar(0,0,0,255));
 
 		// Dibujar GUI
 		if (reproduciendo) {
@@ -153,18 +155,18 @@ int main (int argc, char *argv[]) {
 		imgY += roiY;
 
 		img2 = Mat(img,Rect(roiX, roiY, roiW, roiH));
+		frame.copyTo(saveFrame(videoArea));
 
 		// Meter imagen en frame de video
 		if (poniendoImagen) {
-			img2.copyTo(frame(Rect(imgX, imgY, img2.cols, img2.rows)));
+			img2.copyTo(saveFrame(Rect(imgX, imgY, img2.cols, img2.rows)));
 		}
-
-		save << frame;
 
 		// Dibujar frame video
-		if (!detenido) {
-			frame.copyTo(canvas(videoArea));
+		if (reproduciendo) {
+			save << saveFrame;
 		}
+		saveFrame.copyTo(canvas(videoArea));
 
 		// Mostrar canvas
 		imshow(NOMBRE_VENTANA, canvas);
