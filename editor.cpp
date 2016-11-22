@@ -18,7 +18,7 @@ typedef vector<pbii> vbii;
 void MouseHandler(int event, int x, int y, int flags, void* userdata);
 void Exiting();
 void GuardarVideo();
-
+void alertas(string ttl,string msg, int x, int y);
 // Banderas de estado de GUI/reproducción del video
 bool mouseOprimido = false;
 bool reproduciendo = true;
@@ -54,6 +54,10 @@ string saveFilename;
 VideoCapture cap, cap2;
 Mat img;
 
+
+// Alerts
+Mat alerta=Mat(200,300,CV_8UC4,Scalar(255,255,255,255));
+
 int main (int argc, char *argv[]) {
 	//std::atexit(Exiting);
 	if (argc < 4) {
@@ -65,8 +69,9 @@ int main (int argc, char *argv[]) {
 	saveFilename = string(argv[3]) + string(videoFilename.end()-4, videoFilename.end());
 	cap.open(videoFilename);
 	if (!cap.isOpened()) {
-		cout << "No se pudo abrir el archivo." << endl;
-		exit(-1);
+		//cout << "No se pudo abrir el archivo." << endl;
+		alertas("No se pudo abrir el archivo","No se pudo abrir el archivo de video.",10,50);
+		exit (-1);
 	}
 
 	img = imread(imgFilename, CV_LOAD_IMAGE_COLOR);
@@ -130,7 +135,8 @@ int main (int argc, char *argv[]) {
 			numFrame = -1;
 			cap.open(videoFilename);
 			if (!cap.isOpened()) {
-				cout << "No se pudo abrir el archivo." << endl;
+				//cout << "No se pudo abrir el archivo." << endl;
+				alertas("No se pudo abrir el archivo","No se pudo abrir el archivo de video.",10,50);
 				exit(-1);
 			}
 			primeraIteracion = true;
@@ -240,11 +246,13 @@ int main (int argc, char *argv[]) {
 
 // Guardar video con imagen insertada en archivo
 void GuardarVideo() {
-	cout << "Guardando video..." << endl;
+	//cout << "Guardando video..." << endl;
+	alertas("Guardando","Guardando video...",10,50);
 	int currFrame = 0;
 	cap2.open(videoFilename);
 	if (!cap2.isOpened()) {
-		cout << "No se pudo abrir el archivo." << endl;
+		//cout << "No se pudo abrir el archivo." << endl;
+		alertas("No se pudo abrir el archivo","No se pudo abrir el archivo.",10,50);
 		exit(-1);
 	}
 	Mat saveFrame;
@@ -268,7 +276,8 @@ void GuardarVideo() {
 		// Leer frame del video original
 		cap2 >> saveFrame;
 		if (saveFrame.empty()) {
-			cout << "Archivo guardado exitosamente." << endl;
+			//cout << "Archivo guardado exitosamente." << endl;
+			alertas("Guardando","Archivo guardado exitosamente!",10,50);
 			break;
 		}
 
@@ -366,4 +375,11 @@ void MouseHandler(int event, int x, int y, int flags, void* userdata) {
 		mouseX = x;
 		mouseY = y;
 	}
+}
+void alertas(string ttl,string msg, int x, int y){
+	alerta=Mat(200,300,CV_8UC4,Scalar(255,255,255,255));
+	namedWindow(ttl, CV_WINDOW_AUTOSIZE | CV_GUI_NORMAL);
+	putText(alerta,msg,Point(x,y),FONT_HERSHEY_SIMPLEX,0.5,Scalar(0.0,0.0,255.0,255.0),2,LINE_8,false);		
+	imshow(ttl,alerta);		
+	waitKey(0);
 }
