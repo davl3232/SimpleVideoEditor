@@ -11,19 +11,21 @@ using namespace std;
 
 #define NOMBRE_VENTANA "Simple Video Editor"
 
-typedef pair<int,int> pii;
-typedef pair<bool,pii> pbii;
+typedef pair<int, int> pii;
+typedef pair<bool, pii> pbii;
 typedef vector<pbii> vbii;
 
 void MouseHandler(int event, int x, int y, int flags, void* userdata);
 void Exiting();
 void GuardarVideo();
+void ActualizarAudio();
 
 // Banderas de estado de GUI/reproducción del video
 bool mouseOprimido = false;
 bool reproduciendo = true;
-bool oprimiendoPlay = false, oprimiendoStop = false, oprimiendoGuardar = false;
-bool sobrePlay = false, sobreStop = false, sobreGuardar = false;
+bool oprimiendoPlay = false, oprimiendoStop = false, oprimiendoGuardar = false, oprimiendoSonido = false;
+bool sobrePlay = false, sobreStop = false, sobreGuardar = false, sobreSonido = false;
+bool conSonidoCambiado = false;
 bool detenido = false;
 bool guardando = false;
 bool poniendoImagen = false;
@@ -36,7 +38,7 @@ int mouseX = 0, mouseY = 0;
 vbii mousePos;
 
 // Areas para el GUI
-Rect botonPlayArea, botonStopArea, botonGuardarArea, videoArea;
+Rect botonPlayArea, botonStopArea, botonGuardarArea, botonSonidoArea, videoArea;
 
 // Mat para guardar el frame
 Mat frame;
@@ -48,6 +50,7 @@ Mat canvas;
 // Nombres de archivos
 string videoFilename;
 string imgFilename;
+string sonidoFilename;
 string saveFilename;
 
 // Archivo de video
@@ -56,13 +59,14 @@ Mat img;
 
 int main (int argc, char *argv[]) {
 	//std::atexit(Exiting);
-	if (argc < 4) {
+	if (argc < 5) {
 		cout << "Numero de argumentos invalido." << endl;
 		return 1;
 	}
 	videoFilename = string(argv[1]);
 	imgFilename = string(argv[2]);
-	saveFilename = string(argv[3]) + string(videoFilename.end()-4, videoFilename.end());
+	sonidoFilename = string(argv[3]);
+	saveFilename = string(argv[4]) + string(videoFilename.end() - 4, videoFilename.end());
 	cap.open(videoFilename);
 	if (!cap.isOpened()) {
 		cout << "No se pudo abrir el archivo." << endl;
@@ -105,6 +109,9 @@ int main (int argc, char *argv[]) {
 	Mat botonGuardarOprimido = imread("../assets/guardar_pressed.png", CV_LOAD_IMAGE_COLOR);
 	Mat botonGuardarNormal = imread("../assets/guardar_normal.png", CV_LOAD_IMAGE_COLOR);
 	Mat botonGuardarHover = imread("../assets/guardar_hover.png", CV_LOAD_IMAGE_COLOR);
+	Mat botonSonidoOprimido = imread("../assets/sonido_pressed.png", CV_LOAD_IMAGE_COLOR);
+	Mat botonSonidoNormal = imread("../assets/sonido_normal.png", CV_LOAD_IMAGE_COLOR);
+	Mat botonSonidoHover = imread("../assets/sonido_hover.png", CV_LOAD_IMAGE_COLOR);
 
 	// Abrir ventana con callbacks
 	namedWindow(NOMBRE_VENTANA, CV_WINDOW_AUTOSIZE | CV_GUI_NORMAL);
@@ -115,17 +122,18 @@ int main (int argc, char *argv[]) {
 	cout << CV_VERSION << endl;
 
 	// Inicializar mousePos con tamaño de video original
-	mousePos = vbii(numFrames, pbii(false, pii(0,0)));
-	
+	mousePos = vbii(numFrames, pbii(false, pii(0, 0)));
+
 	// Calcular areas de controles y video
 	videoArea = Rect(0, 0, videoW, videoH);
-	botonPlayArea = Rect(-botonPlayNormal.cols/2.0 + videoW/2.0, videoH, botonPlayNormal.cols, botonPlayNormal.rows);
-	botonStopArea = Rect(-botonPlayNormal.cols/2.0 + videoW/2.0 - botonStopNormal.cols*1.5, videoH, botonPlayNormal.cols, botonPlayNormal.rows);
-	botonGuardarArea = Rect(-botonPlayNormal.cols/2.0 + videoW/2.0 + botonGuardarNormal.cols*1.5, videoH, botonPlayNormal.cols, botonPlayNormal.rows);
+	botonPlayArea = Rect(-botonPlayNormal.cols / 2.0 + videoW / 2.0, videoH, botonPlayNormal.cols, botonPlayNormal.rows);
+	botonStopArea = Rect(-botonPlayNormal.cols / 2.0 + videoW / 2.0 - botonStopNormal.cols * 1.5, videoH, botonPlayNormal.cols, botonPlayNormal.rows);
+	botonGuardarArea = Rect(videoW - botonGuardarNormal.cols * 1.5, videoH, botonPlayNormal.cols, botonPlayNormal.rows);
+	botonSonidoArea = Rect(videoW - botonSonidoNormal.cols * 3, videoH, botonPlayNormal.cols, botonPlayNormal.rows);
 
 	while (true) {
 		// Tomar tiempo que dura el frame
-	    auto t1 = chrono::high_resolution_clock::now();
+		auto t1 = chrono::high_resolution_clock::now();
 		if (detenido) {
 			numFrame = -1;
 			cap.open(videoFilename);
@@ -137,8 +145,8 @@ int main (int argc, char *argv[]) {
 			detenido = false;
 		}
 
-	    // Lee frame del archivo si se está reproduciendo, o es el primer frame del video
-	    if (reproduciendo || primeraIteracion) {
+		// Lee frame del archivo si se está reproduciendo, o es el primer frame del video
+		if (reproduciendo || primeraIteracion) {
 			cap >> frame;
 			if (frame.empty()) {
 				cout << "Archivo terminado." << endl;
@@ -146,9 +154,9 @@ int main (int argc, char *argv[]) {
 			}
 			numFrame++;
 			primeraIteracion = false;
-	    }
+		}
 
-	    /*
+		/*
 		cout << "numFrame " << numFrame << endl;
 		cout << "reproduciendo " << reproduciendo << endl;
 		cout << "detenido " << detenido << endl;
@@ -156,10 +164,10 @@ int main (int argc, char *argv[]) {
 		cout << "primeraIteracion " << primeraIteracion << endl;
 		*/
 
-		outFrame = Mat(frame.rows, frame.cols, frame.type(), Scalar(0,0,0,0));
+		outFrame = Mat(frame.rows, frame.cols, frame.type(), Scalar(0, 0, 0, 0));
 
 		// Canvas GUI
-		canvas = Mat(frame.rows + botonPlayNormal.rows, frame.cols, frame.type(), Scalar(0,0,0,0));
+		canvas = Mat(frame.rows + botonPlayNormal.rows, frame.cols, frame.type(), Scalar(0, 0, 0, 0));
 
 		// Dibujar GUI
 		if (reproduciendo) {
@@ -186,13 +194,21 @@ int main (int argc, char *argv[]) {
 		} else {
 			botonStopNormal.copyTo(canvas(botonStopArea));
 		}
-
 		if (oprimiendoGuardar) {
 			botonGuardarOprimido.copyTo(canvas(botonGuardarArea));
 		} else if (sobreGuardar) {
 			botonGuardarHover.copyTo(canvas(botonGuardarArea));
 		} else {
 			botonGuardarNormal.copyTo(canvas(botonGuardarArea));
+		}
+		if (conSonidoCambiado) {
+			botonSonidoOprimido.copyTo(canvas(botonSonidoArea));
+		} else if (oprimiendoSonido) {
+			botonSonidoOprimido.copyTo(canvas(botonSonidoArea));
+		} else if (sobreSonido) {
+			botonSonidoHover.copyTo(canvas(botonSonidoArea));
+		} else {
+			botonSonidoNormal.copyTo(canvas(botonSonidoArea));
 		}
 
 		// Hacer copia del frame para mostrar
@@ -204,16 +220,16 @@ int main (int argc, char *argv[]) {
 			mousePos[numFrame] = pbii(true, pii(mouseX, mouseY));
 
 			// Cortar imagen para insertar en video
-			int imgX = mouseX - 0.5*(img.cols);
-			int imgY = mouseY - 0.5*(img.rows);
-			int roiX = max(0,min(-imgX, frame.cols));
-			int roiY = max(0,min(-imgY, frame.rows));
-			int roiW = max(0,min(frame.cols - imgX - roiX, img.cols - roiX));
-			int roiH = max(0,min(frame.rows - imgY - roiY, img.rows - roiY));
+			int imgX = mouseX - 0.5 * (img.cols);
+			int imgY = mouseY - 0.5 * (img.rows);
+			int roiX = max(0, min(-imgX, frame.cols));
+			int roiY = max(0, min(-imgY, frame.rows));
+			int roiW = max(0, min(frame.cols - imgX - roiX, img.cols - roiX));
+			int roiH = max(0, min(frame.rows - imgY - roiY, img.rows - roiY));
 			imgX += roiX;
 			imgY += roiY;
 
-			img2 = Mat(img,Rect(roiX, roiY, roiW, roiH));
+			img2 = Mat(img, Rect(roiX, roiY, roiW, roiH));
 			img2.copyTo(outFrame(Rect(imgX, imgY, img2.cols, img2.rows)));
 		}
 
@@ -222,17 +238,17 @@ int main (int argc, char *argv[]) {
 		// Mostrar canvas
 		imshow(NOMBRE_VENTANA, canvas);
 
-	    auto t2 = chrono::high_resolution_clock::now();
-	    chrono::duration<double> diff = t2 - t1;
+		auto t2 = chrono::high_resolution_clock::now();
+		chrono::duration<double> diff = t2 - t1;
 		// Detener al oprimir ESC
 		t2 = chrono::high_resolution_clock::now();
-	    diff = t2 - t1;
-	    if (guardando) {
-	    	GuardarVideo();
-	    	guardando = false;
-	    }
+		diff = t2 - t1;
+		if (guardando) {
+			GuardarVideo();
+			guardando = false;
+		}
 		if (waitKey(1000.0 / fps) == 27) break;
-	    //std::cout << (double)chrono::duration_cast<chrono::nanoseconds>(diff).count()/1000000 << '\n';
+		//std::cout << (double)chrono::duration_cast<chrono::nanoseconds>(diff).count()/1000000 << '\n';
 	}
 
 	return 0;
@@ -263,7 +279,7 @@ void GuardarVideo() {
 	};
 
 	// Archivo de guardado
-	VideoWriter save(saveFilename, VideoWriter::fourcc(fourCC[0],fourCC[1],fourCC[2],fourCC[3]), fps, Size(videoW, videoH));
+	VideoWriter save(saveFilename, VideoWriter::fourcc(fourCC[0], fourCC[1], fourCC[2], fourCC[3]), fps, Size(videoW, videoH));
 	while (true) {
 		// Leer frame del video original
 		cap2 >> saveFrame;
@@ -275,22 +291,23 @@ void GuardarVideo() {
 		if (mousePos[currFrame].first) {
 			Mat img2 = img;
 			// Cortar imagen para insertar en video
-			int imgX = mousePos[currFrame].second.first - 0.5*(img.cols);
-			int imgY = mousePos[currFrame].second.second - 0.5*(img.rows);
-			int roiX = max(0,min(-imgX, saveFrame.cols));
-			int roiY = max(0,min(-imgY, saveFrame.rows));
-			int roiW = max(0,min(saveFrame.cols - imgX - roiX, img.cols - roiX));
-			int roiH = max(0,min(saveFrame.rows - imgY - roiY, img.rows - roiY));
+			int imgX = mousePos[currFrame].second.first - 0.5 * (img.cols);
+			int imgY = mousePos[currFrame].second.second - 0.5 * (img.rows);
+			int roiX = max(0, min(-imgX, saveFrame.cols));
+			int roiY = max(0, min(-imgY, saveFrame.rows));
+			int roiW = max(0, min(saveFrame.cols - imgX - roiX, img.cols - roiX));
+			int roiH = max(0, min(saveFrame.rows - imgY - roiY, img.rows - roiY));
 			imgX += roiX;
 			imgY += roiY;
 
 			// Insertar imagen en video
-			img2 = Mat(img,Rect(roiX, roiY, roiW, roiH));
+			img2 = Mat(img, Rect(roiX, roiY, roiW, roiH));
 			img2.copyTo(saveFrame(Rect(imgX, imgY, img2.cols, img2.rows)));
 		}
 		save << saveFrame;
 		currFrame++;
 	}
+	ActualizarAudio();
 }
 
 // Cuando se acabe el main
@@ -299,6 +316,23 @@ void Exiting() {
 		cout << i << ": (" << mousePos[i].first << ",(" << mousePos[i].second.first << "," << mousePos[i].second.second << "))" << endl;
 	}
 	cout << endl;
+}
+
+void ActualizarAudio() {
+	string param;
+	if (conSonidoCambiado) {
+		param = "ffmpeg -y -i " + videoFilename + " -i " + sonidoFilename + " -codec copy -shortest " + saveFilename;
+		cout << param << endl;
+		system(param.c_str());
+	} else {
+		param = "ffmpeg -y -i " + videoFilename + " -vn -acodec copy sonido_tmp.mp3";
+		cout << param << endl;
+		system(param.c_str());
+		param = "ffmpeg -y -i " + videoFilename + " -i sonido_tmp.mp3  -codec copy -shortest " + saveFilename;
+		cout << param << endl;
+		system(param.c_str());
+		system("rm -f sonido_tmp.mp3");
+	}
 }
 
 // Callback del Mouse
@@ -319,17 +353,23 @@ void MouseHandler(int event, int x, int y, int flags, void* userdata) {
 			oprimiendoGuardar = true;
 			guardando = true;
 		}
+		if (botonSonidoArea.contains(Point(x, y))) {
+			oprimiendoSonido = true;
+			conSonidoCambiado = !conSonidoCambiado;
+		}
 		if (videoArea.contains(Point(x, y))) {
 			poniendoImagen = !poniendoImagen;
 		}
 		sobrePlay = false;
 		sobreStop = false;
 		sobreGuardar = false;
+		sobreSonido = false;
 	} else if (event == EVENT_LBUTTONUP) {
 		mouseOprimido = false;
 		oprimiendoPlay = false;
 		oprimiendoStop = false;
 		oprimiendoGuardar = false;
+		oprimiendoSonido = false;
 		if (botonPlayArea.contains(Point(x, y))) {
 			sobrePlay = true;
 		} else {
@@ -344,6 +384,11 @@ void MouseHandler(int event, int x, int y, int flags, void* userdata) {
 			sobreGuardar = true;
 		} else {
 			sobreGuardar = false;
+		}
+		if (botonSonidoArea.contains(Point(x, y))) {
+			sobreSonido = true;
+		} else {
+			sobreSonido = false;
 		}
 	} else {
 		if (botonPlayArea.contains(Point(x, y))) {
@@ -360,6 +405,11 @@ void MouseHandler(int event, int x, int y, int flags, void* userdata) {
 			sobreGuardar = true;
 		} else {
 			sobreGuardar = false;
+		}
+		if (botonSonidoArea.contains(Point(x, y))) {
+			sobreSonido = true;
+		} else {
+			sobreSonido = false;
 		}
 	}
 	if (videoArea.contains(Point(x, y))) {
