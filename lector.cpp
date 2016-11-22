@@ -44,7 +44,7 @@ int main (int argc, char *argv[]) {
 	}
 	videoFilename = string(argv[1]);
 	imgFilename = string(argv[2]);
-	saveFilename = string(argv[3]);
+	saveFilename = string(argv[3]) + string(videoFilename.end()-4, videoFilename.end());
 	cap.open(videoFilename);
 	if (!cap.isOpened()) {
 		cout << "No se pudo abrir el archivo." << endl;
