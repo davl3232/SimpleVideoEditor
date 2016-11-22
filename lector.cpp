@@ -47,7 +47,7 @@ int main (int argc, char *argv[]) {
 	saveFilename = string(argv[3]);
 	cap.open(videoFilename);
 	if (!cap.isOpened()) {
-		cout << "No se pudo abrir el archvio." << endl;
+		cout << "No se pudo abrir el archivo." << endl;
 		exit(-1);
 	}
 
@@ -56,11 +56,25 @@ int main (int argc, char *argv[]) {
 	Mat frame;
 	Mat img2 = img;
 
-	// Leer video a 24 fps
+	// Leer propiedades de video
 	double fps = cap.get(CV_CAP_PROP_FPS);
-	string nombrePlay = "";
-	nombrePlay += "|>";
-	namedWindow(NOMBRE_VENTANA, CV_WINDOW_AUTOSIZE);
+	int numFrames = cap.get(CV_CAP_PROP_FRAME_COUNT);
+	int videoW = cap.get(CV_CAP_PROP_FRAME_WIDTH);
+	int videoH = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
+	int ex = static_cast<int>(cap.get(CV_CAP_PROP_FOURCC));
+	char fourCC[] = {
+		static_cast<char>(ex & 0XFF),
+		static_cast<char>((ex & 0XFF00) >> 8),
+		static_cast<char>((ex & 0XFF0000) >> 16),
+		static_cast<char>((ex & 0XFF000000) >> 24),
+		0
+	};
+	/*
+	union { int v; char c[5];} unionFourCC ;
+	unionFourCC.v = ex;
+	unionFourCC.c[4]='\0';
+	cout << numFrames << endl;
+	*/
 
 	// Cargar GUI
 	Mat botonPlayOprimido = imread("../assets/play_pressed.png", CV_LOAD_IMAGE_COLOR);
@@ -74,14 +88,23 @@ int main (int argc, char *argv[]) {
 	Mat botonStopHover = imread("../assets/stop_hover.png", CV_LOAD_IMAGE_COLOR);
 
 	// Abrir ventana con callbacks
-	namedWindow(NOMBRE_VENTANA);
+	namedWindow(NOMBRE_VENTANA, CV_WINDOW_AUTOSIZE);
 	setMouseCallback(NOMBRE_VENTANA, mouseHandler);
 
 	bool primeraIteracion = true;
-	int numFrames = cap.get(CV_CAP_PROP_FRAME_COUNT);
-	cout << numFrames << endl;
+	cout << CV_VERSION << endl;
+
+	VideoWriter save(saveFilename, VideoWriter::fourcc(fourCC[0],fourCC[1],fourCC[2],fourCC[3]), fps, Size(videoW, videoH));
+	cout << ex << endl;
+	
+	// Calcular areas de controles y video
+	videoArea = Rect(0, 0, videoW, videoH);
+	botonPlayArea = Rect(-botonPlayNormal.cols/2.0 + videoW/2.0, videoH, botonPlayNormal.cols, botonPlayNormal.rows);
+	botonStopArea = Rect(-botonPlayNormal.cols/2.0 + videoW/2.0 - botonStopNormal.cols*1.5, videoH, botonPlayNormal.cols, botonPlayNormal.rows);
+
 	while (true) {
 	    auto t1 = chrono::high_resolution_clock::now();
+
 	    if (reproduciendo) {
 			cap >> frame;
 			if (frame.empty()) {
@@ -89,13 +112,6 @@ int main (int argc, char *argv[]) {
 				break;
 			}
 	    }
-	    // Calcular areas de controles y video con el primer frame
-		if (primeraIteracion) {
-			videoArea = Rect(0, 0, frame.cols, frame.rows);
-			botonPlayArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
-			botonStopArea = Rect(-botonPlayNormal.cols/2.0 + frame.cols/2.0 - botonStopNormal.cols*1.5, frame.rows, botonPlayNormal.cols, botonPlayNormal.rows);
-			primeraIteracion = false;
-		}
 
 		// Canvas GUI
 		canvas = Mat(frame.rows + botonPlayNormal.rows, frame.cols, frame.type(), Scalar(0,0,0,0));
@@ -126,11 +142,6 @@ int main (int argc, char *argv[]) {
 			botonStopNormal.copyTo(canvas(botonStopArea));
 		}
 
-		// Dibujar frame video
-		if (!detenido) {
-			frame.copyTo(canvas(videoArea));
-		}
-
 		// Cortar imagen para insertar en video
 		int imgX = mouseX - 0.5*(img.cols);
 		int imgY = mouseY - 0.5*(img.rows);
@@ -143,10 +154,16 @@ int main (int argc, char *argv[]) {
 
 		img2 = Mat(img,Rect(roiX, roiY, roiW, roiH));
 
-
 		// Meter imagen en frame de video
 		if (poniendoImagen) {
-			img2.copyTo(canvas(Rect(imgX, imgY, img2.cols, img2.rows)));
+			img2.copyTo(frame(Rect(imgX, imgY, img2.cols, img2.rows)));
+		}
+
+		save << frame;
+
+		// Dibujar frame video
+		if (!detenido) {
+			frame.copyTo(canvas(videoArea));
 		}
 
 		// Mostrar canvas
@@ -178,7 +195,7 @@ void mouseHandler(int event, int x, int y, int flags, void* userdata) {
 			detenido = true;
 			cap.open(videoFilename);
 			if (!cap.isOpened()) {
-				cout << "No se pudo abrir el archvio." << endl;
+				cout << "No se pudo abrir el archivo." << endl;
 				exit(-1);
 			}
 		}
